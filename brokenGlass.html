@@ -1,0 +1,295 @@
+<html>
+<!-- //código do shader. Cada shader vai fazer multiplicação p/ cada vértice. Variavel global que tem q ser definida gl_Position -->
+<!--O primeiro script: Aqui estou passando as coordenadas do vértice - A Vertex shader which provides the clip space coordinates-->
+<!--O segundo script: Aqui estou provendo as cores - a fragment shader that provides the color-->
+<body>
+<script type="vertex" id="vs">
+    #version 300 es
+    in vec4 position;
+    in vec4 color;
+    in vec2 texCoord;
+    in vec3 normal;
+
+    uniform mat4 mMatrix;
+    uniform mat4 vpMatrix;
+
+    out vec4 fColor;
+    out vec2 ftexCoord;
+    out vec4 ipnormal;
+    out vec4 pos3D;
+
+    void main() {
+        fColor = color;
+        ftexCoord = texCoord;
+        ipnormal = mMatrix*vec4(normal,0);
+        pos3D= mMatrix*position;
+        mat4 mvpMatrix = vpMatrix*mMatrix;
+        gl_Position = mvpMatrix*position;
+    }
+</script>
+<script type="fragment" id="fs">
+    #version 300 es
+    precision highp float;
+    in vec4 fColor;
+    in vec2 ftexCoord;
+    in vec4 ipnormal;
+    in vec4 pos3D;
+
+    uniform vec4 lightPosition;
+    uniform vec4 ambient;
+    uniform vec4 diffuse;
+    uniform sampler2D textureMap;
+    uniform vec4 camPosition;
+
+    out vec4 fragColor;
+    void main() {
+        vec4 texColor = texture(textureMap,ftexCoord);
+        vec3  lightDir = normalize ( pos3D.xyz - lightPosition.xyz );
+        float diffusefactor= max(0.0,dot(lightDir, normalize(ipnormal.xyz)));
+        vec3  reflected = reflect ( lightDir, normalize(ipnormal.xyz));
+        vec4  viewDir= normalize ( camPosition - pos3D);
+        float specularfactor = pow(max(0.0,dot(reflected, normalize(viewDir.xyz))),1.0);
+        fragColor = texColor*(ambient + diffusefactor +specularfactor) * diffuse;
+        fragColor.a=1.0;
+    }
+</script>
+
+<canvas id="webgl-canvas"></canvas>
+<script type="text/javascript" src="scripts/MV.js"></script>
+<script type="text/javascript" src="scripts/voronoi_diagrams.js"></script>
+<img id="texImage" src="images/fundo.png" hidden  alt=" "/>
+
+<script>
+    let canvas = document.getElementById("webgl-canvas");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    let aspect= canvas.width/canvas.height;
+
+    //criando o contexto de renderização:
+    let gl = canvas.getContext("webgl2");
+    if (!gl) {
+        console.error("WebGL 2 not available");
+        document.body.innerHTML = "This example requires WebGL 2 which is unavailable on this system."
+    }
+
+    //cor do fundo
+    gl.clearColor(0, 0, 0, 1); //preto
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+    gl.enable(gl.DEPTH_TEST);
+    let vsSource = document.getElementById("vs").text.trim();
+    let fsSource = document.getElementById("fs").text.trim();
+
+    //Vértices - criando seu shader
+    let vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vertexShader, vsSource);
+    gl.compileShader(vertexShader);
+    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(vertexShader));
+    }
+
+    //Cores - criando seu shader
+    let fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fragmentShader, fsSource);
+    gl.compileShader(fragmentShader);
+    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(fragmentShader));
+    }
+
+    //Linkando os shaders ao programa
+    let program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error(gl.getProgramInfoLog(program));
+    }
+    // Tell it to use our program (pair of shaders)
+    gl.useProgram(program);
+
+    //Textura
+    const pixel = new Uint8Array([240, 240, 240, 240])
+    let texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,texture);
+    gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,pixel);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    const ext =
+        gl.getExtension("EXT_texture_filter_anisotropic") ||
+        gl.getExtension("MOZ_EXT_texture_filter_anisotropic") ||
+        gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic");
+    if (ext) {
+        const max = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+        gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, max);
+    }
+    gl.uniform1i(gl.getUniformLocation(program,"textureMap"),0) ; //mudar de 0 para +1 caso adicionar outra textura
+
+    //1. Define os arrays de vertices
+    let vertex = [
+        vec4(-1,-1,1,1), //0
+        vec4(-1,1,1,1),//1
+        vec4(1,1,1,1),//2
+    ];
+    let vertexColors = [
+        vec4(0.24,0.24,0.24,0.24),
+        vec4(0.24,0.24,0.24,0.24),
+        vec4(0.24,0.24,0.24,0.24),
+    ]
+
+    let texCoord = [
+        vec2 (0,0),
+        vec2 (0,1),
+        vec2 (1,1),
+    ]
+
+    //inserir os vertices que serão desenhados randomicamente
+    let positionArray =[];
+    let colorsArray =[];
+    let texCoordArray =[];
+    let normalArray =[];
+
+
+
+
+    //3. Copiar para GPU
+    //Vertices
+    //Attributes get their data from buffers, so we need to create a buffer
+    let positionBuffer = gl.createBuffer();
+    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
+    gl.bindBuffer(gl.ARRAY_BUFFER,positionBuffer);
+    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+    gl.bufferData(gl.ARRAY_BUFFER,flatten(positionArray),gl.STATIC_DRAW);
+    //location of the attribute for the program - deve ser feito na inicialização e não na renderização
+    let positionLoc = gl.getAttribLocation(program,"position");
+    //Then we need to specify how to pull the data out
+    gl.vertexAttribPointer(positionLoc,4,gl.FLOAT,false,0,0);
+    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+    gl.enableVertexAttribArray(positionLoc);
+
+    //Cores
+    //Attributes get their data from buffers, so we need to create a buffer
+    let colorBuffer = gl.createBuffer();
+    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
+    gl.bindBuffer(gl.ARRAY_BUFFER,colorBuffer);
+    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+    gl.bufferData(gl.ARRAY_BUFFER,flatten(colorsArray),gl.STATIC_DRAW);
+    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
+    let colorLoc = gl.getAttribLocation(program,"color");
+    //Then we need to specify how to pull the data out
+    gl.vertexAttribPointer(colorLoc,4,gl.FLOAT,false,0,0);
+    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+    gl.enableVertexAttribArray(colorLoc);
+
+    //Textura
+    //Attributes get their data from buffers, so we need to create a buffer
+    let texCoordBuffer = gl.createBuffer();
+    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
+    gl.bindBuffer(gl.ARRAY_BUFFER,texCoordBuffer);
+    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+    gl.bufferData(gl.ARRAY_BUFFER,flatten(texCoordArray),gl.STATIC_DRAW);
+    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
+    let texCoordLoc = gl.getAttribLocation(program,"texCoord");
+    //Then we need to specify how to pull the data out
+    gl.vertexAttribPointer(texCoordLoc,2,gl.FLOAT,false,0,0);
+    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+    gl.enableVertexAttribArray(texCoordLoc);
+
+    let texCoordBuffer1 = gl.createBuffer();
+    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
+    gl.bindBuffer(gl.ARRAY_BUFFER,texCoordBuffer1);
+    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+    gl.bufferData(gl.ARRAY_BUFFER,flatten(texCoordArray),gl.STATIC_DRAW);
+    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
+    let texCoordLoc1 = gl.getAttribLocation(program,"texCoord");
+    //Then we need to specify how to pull the data out
+    gl.vertexAttribPointer(texCoordLoc1,2,gl.FLOAT,false,0,0);
+    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+    gl.enableVertexAttribArray(texCoordLoc1);
+
+
+
+    //Normal
+    //Attributes get their data from buffers, so we need to create a buffer
+    let normalBuffer = gl.createBuffer();
+    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
+    gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffer);
+    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+    gl.bufferData(gl.ARRAY_BUFFER,flatten(normalArray),gl.STATIC_DRAW);
+    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
+    let normalLoc = gl.getAttribLocation(program,"normal");
+    //Then we need to specify how to pull the data out
+    gl.vertexAttribPointer(normalLoc,3,gl.FLOAT,false,0,0);
+    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+    gl.enableVertexAttribArray(normalLoc);
+
+    //Luz
+    //a luz ambiente é a mesma para todos
+    const lightAmbient = vec4(0.2,0.2,0.2,1);
+    gl.uniform4fv(gl.getUniformLocation(program,'ambient'),lightAmbient);
+
+    //Luz verdeee
+    const lightPosition = vec4(0.0,0.0,2.5,1.0);
+    //verde
+    const lightDiffuse = vec4 (0.0,1.0,0.0,1.0);
+    //aqui defino a cor
+    gl.uniform4fv(gl.getUniformLocation(program,'lightPosition'),lightPosition);
+    gl.uniform4fv(gl.getUniformLocation(program,'diffuse'),lightDiffuse);
+
+    //Luz2 - vermelho
+    const lightPosition2 = vec4(-2,0.0,2.5,1.0);
+    //vermelho
+    gl.uniform4fv(gl.getUniformLocation(program,'lightPosition2'),lightPosition2);
+    //aqui que mudo a cor
+    const lightDiffuse2 = vec4 (1.0,0.0,0.0,1.0);
+    gl.uniform4fv(gl.getUniformLocation(program,'diffuse2'),lightDiffuse2);
+
+    //Luz3 - azul
+    const lightPosition3 = vec4(2,0.0,2.5,1.0);
+    //azul
+    gl.uniform4fv(gl.getUniformLocation(program,'lightPosition3'),lightPosition3);
+    //aqui que mudo a cor
+    const lightDiffuse3 = vec4 (0.0,0.0,1.0,1.0);
+    gl.uniform4fv(gl.getUniformLocation(program,'diffuse3'),lightDiffuse3);
+
+    ////////////////
+    // DRAW
+    ////////////////
+    //posição da câmera é 4, está apontando para o centro e em "pé" no eixo y
+    let eye= vec3(0,0,4), target=vec3(0,0,0), up = vec3(0,1,0) ;
+    let viewMatrix= lookAt(eye,target,up);
+    //o que será visto, near =  tem que ser menor que a distância da câmera, que é 3, foi usado 1;
+    // far = 4, vai pegar até o -1 de profundidade
+    let projectionMatrix = perspective(90,aspect,1,20);
+    //definir uma matriz, a ordem de multiplicação é: projection x view
+    let viewProjection= mult(projectionMatrix,viewMatrix);
+    //passa a matriz para o shadder
+    let vpMatrixLoc= gl.getUniformLocation(program,"vpMatrix");
+    let mMatrixLoc= gl.getUniformLocation(program,"mMatrix");
+    let camPosloc = gl.getUniformLocation(program,"camPosition");
+    let eye4 = vec4(eye[0],eye[1],eye[2],1);
+    gl.uniform4fv(camPosloc,eye4);
+
+    //renderização, laço infinito
+    let render = function (){
+        let modelMatrix = mult(rotateX(180) ,rotateY(0));
+        gl.uniformMatrix4fv(mMatrixLoc,false,flatten(modelMatrix));
+        gl.uniformMatrix4fv(vpMatrixLoc,false,flatten(viewProjection));
+        //limpa a tela sempre
+        gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+        //Each time our vertex shader is run 3 times WebGL will draw a triangle based on the 3 values we set
+        // gl_Position to. No matter what size our canvas is those values are in clip space coordinates that go
+        // from -1 to 1 in each direction.
+        //Agora sim vai desenhar
+        gl.drawArrays(gl.TRIANGLES,0,positionArray.length);
+        //função assincrona que só vai ser chamada quando a GPU retornar que finalizou
+        requestAnimationFrame(render);
+    }
+
+    render ();
+
+</script>
+
+</body>
+
+</html>
