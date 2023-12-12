@@ -10,16 +10,23 @@
 <!-- No vertex: -->
 <!-- gl_PointSize é para deefinir o tamanho dos pontos -->
 <script type="vertex" id="vs">
-   #version 300 es
-   in vec2 a_position;
-   in vec4 fragColorLoc;
-   out vec4 finalColor;
+    #version 300 es
+    in vec2 a_position;
+    in vec4 a_color;
 
-   void main() {
-       gl_Position = vec4(a_position, 0.0, 1.0);
-       gl_PointSize = 1.0;
-       finalColor = fragColorLoc;
-   }
+    uniform mat4 mMatrix;
+    uniform mat4 vpMatrix;
+
+    out vec4 fragColorLoc;
+    out vec4 pos3D;
+
+    void main() {
+        pos3D = mMatrix*a_position;
+        transformPosition = vec4(a_position, 0.0, 1.0);
+        mat4 mvpMatrix = vpMatrix*mMatrix;
+        gl_Position = mvpMatrix*transformPosition;
+        fragColorLoc = a_color;
+    }
 </script>
 
 <!-- Nos fragmentos: -->
@@ -27,14 +34,20 @@
 <script type="fragment" id="fs">
     #version 300 es
     precision mediump float;
+    in vec4 pos3D;
+    in vec4 fragColorLoc;
 
-    in vec4 finalColor;
+    uniform vec4 lightPosition;
+    uniform vec4 ambient;
+    uniform vec4 camPosition;
 
-
-    out vec4 fragColorLoc;
+    out vec4 fragColor;
 
     void main() {
-        fragColorLoc = finalColor;
+        fragColor = fragColorLoc;
+        vec3 lightDir = normalize ( pos3D.xyz - lightPosition.xyz );
+
+        vec4  viewDir= normalize ( camPosition - pos3D);
     }
 </script>
 
@@ -95,7 +108,6 @@
 
     //inserir os vertices que serão desenhados randomicamente
     let colorsArray =[];
-    let texCoordArray =[];
 
     // Lógica de Voronoi
     //Chamando as funções para criar os pontos
@@ -120,51 +132,31 @@
     //Vertices
     //Attributes get their data from buffers, so we need to create a buffer
     let positionBuffer = gl.createBuffer();
-    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
-    gl.bindBuffer(gl.ARRAY_BUFFER,positionBuffer);
-    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-    //location of the attribute for the program - deve ser feito na inicialização e não na renderização
-    let positionLoc = gl.getAttribLocation(program,"position");
-    //Then we need to specify how to pull the data out
-    gl.vertexAttribPointer(positionLoc,2, gl.FLOAT, false, 0, 0);
-    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+    let positionLoc = gl.getAttribLocation(program, "a_position");
+    gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(positionLoc);
 
-    //Cores
-    //Attributes get their data from buffers, so we need to create a buffer
+    // Cores
     let colorBuffer = gl.createBuffer();
-    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
-    gl.bindBuffer(gl.ARRAY_BUFFER,colorBuffer);
-    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
-    gl.bufferData(gl.ARRAY_BUFFER,colorsArray,gl.STATIC_DRAW);
-    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
-    let colorLoc = gl.getAttribLocation(program,"color");
-    //Then we need to specify how to pull the data out
-    gl.vertexAttribPointer(colorLoc,4,gl.FLOAT,false,0,0);
-    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colorsArray), gl.STATIC_DRAW);
+    let colorLoc = gl.getAttribLocation(program, "a_color");
+    gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(colorLoc);
-
-    //Textura
-    //Attributes get their data from buffers, so we need to create a buffer
-    let texCoordBuffer = gl.createBuffer();
-    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
-    gl.bindBuffer(gl.ARRAY_BUFFER,texCoordBuffer);
-    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
-    gl.bufferData(gl.ARRAY_BUFFER,texCoordArray,gl.STATIC_DRAW);
-    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
-    let texCoordLoc = gl.getAttribLocation(program,"texCoord");
-    //Then we need to specify how to pull the data out
-    gl.vertexAttribPointer(texCoordLoc,2,gl.FLOAT,false,0,0);
-    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
-    gl.enableVertexAttribArray(texCoordLoc);
-
 
     //Luz
     //a luz ambiente é a mesma para todos
     const lightAmbient = vec4(0.2,0.2,0.2,1);
     gl.uniform4fv(gl.getUniformLocation(program,'ambient'),lightAmbient);
-
+    //Luz3 - azul
+    const lightPosition3 = vec4(2,0.0,2.5,1.0);
+    //azul
+    gl.uniform4fv(gl.getUniformLocation(program,'lightPosition3'),lightPosition3);
+    //aqui que mudo a cor
+    const lightDiffuse3 = vec4 (0.0,0.0,1.0,1.0);
+    gl.uniform4fv(gl.getUniformLocation(program,'diffuse3'),lightDiffuse3);
 
     ////////////////
     // DRAW
@@ -173,12 +165,12 @@
     let eye= vec3(0,0,4), target=vec3(0,0,0), up = vec3(0,1,0) ;
     let viewMatrix= lookAt(eye,target,up);
     //o que será visto, near =  tem que ser menor que a distância da câmera, que é 3, foi usado 1;
-    // far = 4, vai pegar até o -1 de profundidade
+    // far = 4, vai pegar até o - 1 de profundidade
     let projectionMatrix = perspective(90, aspect, 1, 20);
     //definir uma matriz, a ordem de multiplicação é: projection x view
     let viewProjection= mult(projectionMatrix,viewMatrix);
     //passa a matriz para o shadder
-    let fragColorLoc = gl.getUniformLocation(program, "finalColor");
+    let fragColorLoc = gl.getUniformLocation(program, "a_color");
     let vpMatrixLoc= gl.getUniformLocation(program,"vpMatrix");
     let mMatrixLoc= gl.getUniformLocation(program,"mMatrix");
     let camPosloc = gl.getUniformLocation(program,"camPosition");

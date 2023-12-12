@@ -9,7 +9,6 @@
 //    console.log(`Ponto ${i + 1}: Coordenadas (${site.x}, ${site.y}), Semente: (${site.site.x}, ${site.site.y})`);
 //}
 
-
 //Funções
 //função para gerar um número inteiro entre o min e max
 function getRandomInt(min, max) {
