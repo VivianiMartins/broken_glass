@@ -12,6 +12,7 @@
     #version 300 es
     in vec4 position;
     in vec4 color;
+    in vec2 texCoord;
     in vec3 normal;
 
     uniform mat4 mMatrix;
@@ -19,12 +20,15 @@
 
     out vec4 fColor;
     out vec4 ipnormal;
+    out vec2 ftexCoord;
     out vec4 pos3D;
 
     void main() {
-        fColor = color;
+        vec4 tempColor = color;
+        fColor = tempColor;
+        ftexCoord = texCoord;
         ipnormal = mMatrix*vec4(normal,0);
-        pos3D= mMatrix*position;
+        pos3D = mMatrix*position;
         mat4 mvpMatrix = vpMatrix*mMatrix;
         gl_Position = mvpMatrix*position;
     }
@@ -35,10 +39,14 @@
     in vec4 fColor;
     in vec4 ipnormal;
     in vec4 pos3D;
+    in vec2 ftexCoord;
+
+    uniform sampler2D sua_sampler_uniform;
     uniform vec4 lightPosition;
     uniform vec4 ambient;
     uniform vec4 diffuse;
     uniform vec4 camPosition;
+
     out vec4 fragColor;
 
     void main() {
@@ -62,6 +70,10 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     let aspect= canvas.width/canvas.height;
+    console.log('canvas');
+    console.log(aspect);
+    console.log(canvas.width);
+    console.log(canvas.height);
 
     //criando o contexto de renderização:
     let gl = canvas.getContext("webgl2");
@@ -104,6 +116,19 @@
     // Tell it to use our program (pair of shaders)
     gl.useProgram(program);
 
+    //Textura
+    const pixel = new Uint8Array([240, 240, 240, 240]);
+    let texture = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+
     //1. Define os arrays de vertices
     //Define os arrays de vertices usando a Lógica de Voronoi
     //Chamando as funções para criar os pontos
@@ -111,22 +136,32 @@
     let colorsArray =[];
     let normalArray =[];
     let vertices = [];
-    let totalPoints = getRandomInt(30, 100);
+    let texCoordArray =[];
+    let totalPoints = getRandomInt(30, 1500);
+    console.log('Total de pontos', totalPoints);
     let sites = setSites(totalPoints);
+    console.log('Sites', sites);
     fillVoronoi (sites);
+
+    //// Exibindo informações dos pontos após a função fillVoronoi
+    console.log("Pontos de Voronoi:");
+    for (let i = 0; i < sites.length; i++) {
+        let site = sites[i];
+        console.log(`Ponto ${i + 1}: Coordenadas (${site.x}, ${site.y}), Semente: (${site.site.x}, ${site.site.y})`);
+    }
 
     // Definindo as cores para cada região de Voronoi com cores próximas de vidro e uma branca
     for (let i = 0; i < sites.length; i++) {
         const color = i === 0 ? { r: 1.0, g: 1.0, b: 1.0, a: 1.0 } : { r: 0.8, g: 0.9, b: 1.0, a: 0.8 };
         colorsArray.push(color.r, color.g, color.b, color.a);
     }
-
+    console.log('Cores', colorsArray);
     //defininfos os vertices dos pontos
     vertices = sites.reduce((acc, site) => {
         acc.push(site.x, site.y);
         return acc;
     }, []);
-
+    console.log('Vertices', vertices);
     //3. Copiar para GPU
 
     //Vertices
@@ -143,6 +178,21 @@
     //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
     gl.enableVertexAttribArray(positionLoc);
 
+    //Textura
+    //Attributes get their data from buffers, so we need to create a buffer
+    let texCoordBuffer = gl.createBuffer();
+    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
+    gl.bindBuffer(gl.ARRAY_BUFFER,texCoordBuffer);
+    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+    gl.bufferData(gl.ARRAY_BUFFER,texCoordArray,gl.STATIC_DRAW);
+    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
+    let textureLocation = gl.getUniformLocation(program, "texCoord");
+    //Then we need to specify how to pull the data out
+    gl.vertexAttribPointer(textureLocation,2,gl.FLOAT,false,0,0);
+    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+    gl.enableVertexAttribArray(textureLocation);
+
+
     //Cores
     //Attributes get their data from buffers, so we need to create a buffer
     let colorBuffer = gl.createBuffer();
@@ -157,6 +207,21 @@
     //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
     gl.enableVertexAttribArray(colorLoc);
 
+
+    //Normal
+    //Attributes get their data from buffers, so we need to create a buffer
+    let normalBuffer = gl.createBuffer();
+    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
+    gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffer);
+    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(normalArray),gl.STATIC_DRAW);
+    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
+    let normalLoc = gl.getAttribLocation(program,"normal");
+    console.log('normalLoc', normalLoc);
+    //Then we need to specify how to pull the data out
+    gl.vertexAttribPointer(normalLoc,3,gl.FLOAT,false,0,0);
+    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+    gl.enableVertexAttribArray(normalLoc);
 
     //Luz
     //a luz ambiente é a mesma para todos
@@ -176,32 +241,34 @@
     //posição da câmera é 4, está apontando para o centro e em "pé" no eixo y
     let eye= vec3(0,0,4), target=vec3(0,0,0), up = vec3(0,1,0) ;
     let viewMatrix= lookAt(eye,target,up);
+    console.log('viewMatrix', viewMatrix);
     //o que será visto, near =  tem que ser menor que a distância da câmera, que é 3, foi usado 1;
     // far = 4, vai pegar até o -1 de profundidade
     let projectionMatrix = perspective(90,aspect,1,20);
+    console.log('projectionMatrix', projectionMatrix);
     //definir uma matriz, a ordem de multiplicação é: projection x view
     let viewProjection= mult(projectionMatrix,viewMatrix);
+    console.log('viewProjection', viewProjection);
+
+
     //passa a matriz para o shadder
-    let vpMatrixLoc= gl.getUniformLocation(program,"vpMatrix");
-    let mMatrixLoc= gl.getUniformLocation(program,"mMatrix");
+    let vpMatrixLoc = gl.getUniformLocation(program,"vpMatrix");
+    let mMatrixLoc = gl.getUniformLocation(program,"mMatrix");
     let camPosloc = gl.getUniformLocation(program,"camPosition");
-    let fColorLoc = gl.getUniformLocation(program, "fColor");
+    let fColorLoc = gl.getUniformLocation(program, "fragcolor");
     let eye4 = vec4(eye[0],eye[1],eye[2],1);
     gl.uniform4fv(camPosloc,eye4);
 
-    //Normal
-    //Attributes get their data from buffers, so we need to create a buffer
-    let normalBuffer = gl.createBuffer();
-    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
-    gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffer);
-    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
-    gl.bufferData(gl.ARRAY_BUFFER,flatten(normalArray),gl.STATIC_DRAW);
-    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
-    let normalLoc = gl.getAttribLocation(program,"normal");
-    //Then we need to specify how to pull the data out
-    gl.vertexAttribPointer(normalLoc,3,gl.FLOAT,false,0,0);
-    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
-    gl.enableVertexAttribArray(normalLoc);
+
+    console.log('vpMatrixLoc', vpMatrixLoc);
+    console.log('mMatrixLoc', mMatrixLoc);
+    console.log('camPosloc', camPosloc);
+    console.log('fColorLoc', fColorLoc);
+    console.log('eye4', eye4);
+
+
+
+
 
 
     //renderização, laço infinito
