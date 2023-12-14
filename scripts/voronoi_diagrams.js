@@ -23,8 +23,8 @@ function setSites(totalSites) {
     let x = 0;
     let y = 0;
     for (let i = 0; i < totalSites; i++) {
-        x = getRandomInt(10, 600);
-        y = getRandomInt(10, 600);
+        x = getRandomInt(-5, 5);
+        y = getRandomInt(-5, 5);
         sites[i] = { x, y };
     }
     return sites;
@@ -53,7 +53,7 @@ function fillVoronoi (sites) {
    b: With two components: b[0] and b[1], 'x' and 'y' coordinates
  Returns: Euclidean Distance value.
 */
-//calculo da distancia euclasiana para definir a distancia entre pontos
+//calculo da distancia euclidiana para definir a distancia entre pontos
 function distance(a, b) {
     var dx = b[0] - a[0];
     var dy = b[1] - a[1];
@@ -61,7 +61,7 @@ function distance(a, b) {
 }
 
 //gerando os poligonos
-function getVoronoiCellVertices(pointIndex) {
+function getVoronoiCellVertices(pointIndex, sites) {
     const cellVertices = [];
     const site = sites[pointIndex]; // O ponto para o qual estamos criando a célula
 
@@ -80,7 +80,6 @@ function getVoronoiCellVertices(pointIndex) {
             }
         }
     }
-
     return cellVertices;
 }
 
