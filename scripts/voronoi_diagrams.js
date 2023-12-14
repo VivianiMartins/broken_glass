@@ -85,7 +85,7 @@ function findLineIntersection(point1, point2) {
     if (x1 === x2 || y1 === y2){ // Linhas são paralelas ou coincidentes
         return null;
     }
-    const m1 = (y2 - y1) / (x2 - x1);     // Calcule as inclinações das linhas
+    const m1 = (y2 - y1) / (x2 - x1);// Calcule as inclinações das linhas
     const b1 = y1 - m1 * x1; // Calcule as interceptações y
     const y = y1; // Ponto de interseção y para linhas horizontais
     const x = (y - b1) / m1;  // Ponto de interseção x

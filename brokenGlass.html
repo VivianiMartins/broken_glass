@@ -139,7 +139,7 @@
             //location of the attribute for the program - deve ser feito na inicialização e não na renderização
             let positionLoc = gl.getAttribLocation(program,"position");
             //Then we need to specify how to pull the data out
-            gl.vertexAttribPointer(positionLoc,2,gl.FLOAT,false,0,0);
+            gl.vertexAttribPointer(positionLoc,4,gl.FLOAT,false,0,0);
             //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
             gl.enableVertexAttribArray(positionLoc);
 
