@@ -41,7 +41,7 @@
     in vec4 pos3D;
     in vec2 ftexCoord;
 
-    uniform sampler2D sua_sampler_uniform;
+    uniform vec4 specular;
     uniform vec4 lightPosition;
     uniform vec4 ambient;
     uniform vec4 diffuse;
@@ -138,33 +138,35 @@
     let vertices = [];
     let poligonoVertices = [];
     let texCoordArray =[];
-    let totalPoints = getRandomInt(30, 1500);
-    console.log('Total de pontos', totalPoints);
+    let totalPoints = getRandomInt(30, 300);
     let sites = setSites(totalPoints);
-    console.log('Sites', sites);
     fillVoronoi (sites);
 
     //// Exibindo informações dos pontos após a função fillVoronoi
-    console.log("Pontos de Voronoi:");
-    for (let i = 0; i < sites.length; i++) {
-        let site = sites[i];
-        console.log(`Ponto ${i + 1}: Coordenadas (${site.x}, ${site.y}), Semente: (${site.site.x}, ${site.site.y})`);
-    }
+    //console.log('Total de pontos', totalPoints);
+    //console.log('Sites', sites);
+    //console.log("Pontos de Voronoi:");
+    //for (let i = 0; i < sites.length; i++) {
+    //    let site = sites[i];
+    //    console.log(`Ponto ${i + 1}: Coordenadas (${site.x}, ${site.y}), Semente: (${site.site.x}, ${site.site.y})`);
+    //}
 
     // Definindo as cores para cada região de Voronoi com cores próximas de vidro e uma branca
     for (let i = 0; i < sites.length; i++) {
         const color = i === 0 ? { r: 1.0, g: 1.0, b: 1.0, a: 1.0 } : { r: 0.8, g: 0.9, b: 1.0, a: 0.8 };
         colorsArray.push(color.r, color.g, color.b, color.a);
     }
-    console.log('Cores', colorsArray);
+
     //defininfos os vertices dos pontos
     vertices = sites.reduce((acc, site) => {
         acc.push(site.x, site.y);
         return acc;
     }, []);
-    console.log('Vertices', vertices);
-    //3. Copiar para GPU
 
+    //console.log('Cores', colorsArray);
+    //console.log('Vertices', vertices);
+
+    //3. Copiar para GPU
     //Vertices
     //Attributes get their data from buffers, so we need to create a buffer
     let positionBuffer = gl.createBuffer();
@@ -251,7 +253,6 @@
     let viewProjection= mult(projectionMatrix,viewMatrix);
     console.log('viewProjection', viewProjection);
 
-
     //passa a matriz para o shadder
     let vpMatrixLoc = gl.getUniformLocation(program,"vpMatrix");
     let mMatrixLoc = gl.getUniformLocation(program,"mMatrix");
@@ -260,16 +261,17 @@
     let eye4 = vec4(eye[0],eye[1],eye[2],1);
     gl.uniform4fv(camPosloc,eye4);
 
-
     console.log('vpMatrixLoc', vpMatrixLoc);
     console.log('mMatrixLoc', mMatrixLoc);
     console.log('camPosloc', camPosloc);
     console.log('fColorLoc', fColorLoc);
     console.log('eye4', eye4);
 
+    console.log('Vertex shader compile status:', gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS));
+    console.log('Vertex shader info log:', gl.getShaderInfoLog(vertexShader));
 
-
-
+    console.log('Fragment shader compile status:', gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS));
+    console.log('Fragment shader info log:', gl.getShaderInfoLog(fragmentShader));
 
 
     //renderização, laço infinito
@@ -279,11 +281,8 @@
         gl.uniformMatrix4fv(vpMatrixLoc,false,flatten(viewProjection));
         //limpa a tela sempre
         gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-
+        console.log('renderizando os pontos');
         for (let i = 0; i < totalPoints; i++) {
-            //Each time our vertex shader is run 3 times WebGL will draw a triangle based on the 3 values we set
-            // gl_Position to. No matter what size our canvas is those values are in clip space coordinates that go
-            // from -1 to 1 in each direction.
             //Agora sim vai desenhar
             // Atualiza o uniform da cor no shader de fragmentos
             const color = [colorsArray[i * 4], colorsArray[i * 4 + 1], colorsArray[i * 4 + 2], colorsArray[i * 4 + 3]];

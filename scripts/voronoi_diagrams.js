@@ -59,6 +59,7 @@ function distance(a, b) {
     var dy = b[1] - a[1];
     return Math.sqrt(dx * dx + dy * dy); // Euclidean distance formula
 }
+
 //gerando os poligonos
 function getVoronoiCellVertices(pointIndex) {
     const cellVertices = [];
@@ -67,12 +68,55 @@ function getVoronoiCellVertices(pointIndex) {
     for (let j = 0; j < totalPoints; j++) {
         if (j !== pointIndex) {
             const neighborSite = sites[j];
+            // Encontre a interseção das linhas entre o site atual e seu vizinho
+            const intersection = findLineIntersection(site, neighborSite);
 
-            // Adicione os vértices da aresta entre o site atual e seu vizinho
-            // Lembre-se de que a ordem dos vértices é crucial para formar um polígono
-            cellVertices.push(site.x, site.y, neighborSite.x, neighborSite.y);
+            if (intersection !== null) {
+                // Adicione os vértices da aresta entre o site atual e seu vizinho
+                cellVertices.push(intersection.x, intersection.y);
+            } else {
+                // Se a interseção for null, adicione diretamente os vértices dos pontos vizinhos
+                cellVertices.push(neighborSite.x, neighborSite.y);
+            }
         }
     }
 
     return cellVertices;
+}
+
+// Função para encontrar a interseção entre as linhas formadas pelos pontos
+function findLineIntersection(point1, point2) {
+    const x1 = point1.x;
+    const y1 = point1.y;
+    const x2 = point2.x;
+    const y2 = point2.y;
+
+    // Verifique se as linhas são verticais
+    if (x1 === x2) {
+        // Linhas são paralelas ou coincidentes
+        return null;
+    }
+    // Verifique se as linhas são horizontais
+    if (y1 === y2) {
+        // Linhas são paralelas ou coincidentes
+        return null;
+    }
+    // Calcule as inclinações das linhas
+    const m1 = (y2 - y1) / (x2 - x1);
+    // Calcule as interceptações y
+    const b1 = y1 - m1 * x1;
+    // Ponto de interseção y para linhas horizontais
+    const y = y1;
+    // Ponto de interseção x
+    const x = (y - b1) / m1;
+    // Verifique se o ponto de interseção está dentro do intervalo dos segmentos de linha
+    if (
+        (x >= Math.min(x1, x2) && x <= Math.max(x1, x2)) &&
+        (y >= Math.min(y1, y2) && y <= Math.max(y1, y2))
+    ) {
+        return { x, y };
+    } else {
+        // As linhas não se intersectam dentro do intervalo dos segmentos de linha
+        return null;
+    }
 }
