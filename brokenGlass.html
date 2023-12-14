@@ -1,283 +1,196 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
-    <!-- Restante do seu código -->
-</head>
-<!-- //código do shader. Cada shader vai fazer multiplicação p/ cada vértice. Variavel global que tem q ser definida gl_Position -->
-<!--O primeiro script: Aqui estou passando as coordenadas do vértice - A Vertex shader which provides the clip space coordinates-->
-<!--O segundo script: Aqui estou provendo as cores - a fragment shader that provides the color-->
-<body>
-<script type="vertex" id="vs">
-    #version 300 es
-    in vec4 position;
-    in vec4 color;
+    <head>
+        <meta charset="UTF-8">
+    </head>
+    <body>
+        <!-- //código do shader. Cada shader vai fazer multiplicação p/ cada vértice. Variavel global que tem q ser definida gl_Position -->
+        <!--O primeiro script: Aqui estou passando as coordenadas do vértice - A Vertex shader which provides the clip space coordinates-->
+        <!--O segundo script: Aqui estou provendo as cores - a fragment shader that provides the color-->
+        <script type="vertex" id="vs">
+            #version 300 es
+            precision highp float;
+            in vec4 position;
+            in vec2 color;
 
-    uniform mat4 vpMatrix;
-    uniform mat4 mpMatrix;
+            uniform mat4 mvpMatrix;
+            out vec4 vColor;
 
-    out vec4 vColor;
+            void main() {
+                vColor = vec4(color, 0.0, 1.0);
+                gl_Position = mvpMatrix*position;
+            }
+        </script>
 
-    void main() {
-        vColor = color;
-         mat4 mvpMatrix = vpMatrix*mMatrix;
-        gl_Position = mvpMatrix*position;
-    }
-</script>
+        <script type="fragment" id="fs">
+            #version 300 es
+            precision highp float;
+            in vec4 vColor;
 
-<script type="fragment" id="fs">
-    #version 300 es
-    precision highp float;
-    in vec4 vColor;
+            out vec4 fragColor;
 
-    uniform vec4 camPosition;
+            void main() {
+                fragColor=vColor;
+            }
+        </script>
 
-    out vec4 fragColor;
+        <canvas id="webgl-canvas"></canvas>
+        <script type="text/javascript" src="scripts/MV.js"></script>
+        <script type="text/javascript" src="scripts/voronoi_diagrams.js"></script>
+        <script>
+            let canvas = document.getElementById("webgl-canvas");
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            let aspect= canvas.width/canvas.height;
+            console.log('canvas');
+            console.log(aspect);
+            console.log(canvas.width);
+            console.log(canvas.height);
 
-    void main() {
-        vec4  viewDir= normalize (camPosition);
-        fragColor=vColor;
-    }
-</script>
+            //criando o contexto de renderização:
+            let gl = canvas.getContext("webgl2");
+            if (!gl) {
+                console.error("WebGL 2 not available");
+                document.body.innerHTML = "This example requires WebGL 2 which is unavailable on this system."
+            }
 
-<canvas id="webgl-canvas"></canvas>
-<script type="text/javascript" src="scripts/MV.js"></script>
-<script type="text/javascript" src="scripts/voronoi_diagrams.js"></script>
-<img id="texImage" src="images/fundo.png" hidden  alt=" "/>
+            //cor do fundo
+            gl.clearColor(0, 0, 0, 1);//preto
+            gl.enable(gl.DEPTH_TEST);
+            let vsSource = document.getElementById("vs").text.trim();
+            let fsSource = document.getElementById("fs").text.trim();
 
-<script>
-    let canvas = document.getElementById("webgl-canvas");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    let aspect= canvas.width/canvas.height;
-    console.log('canvas');
-    console.log(aspect);
-    console.log(canvas.width);
-    console.log(canvas.height);
+            //Vertex - criando seu shader
+            let vertexShader = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vertexShader, vsSource);
+            gl.compileShader(vertexShader);
+            if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(vertexShader));
+            }
+            //Fragment - criando seu shader
+            let fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(fragmentShader, fsSource);
+            gl.compileShader(fragmentShader);
+            if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
+                console.error(gl.getShaderInfoLog(fragmentShader));
+            }
 
-    //criando o contexto de renderização:
-    let gl = canvas.getContext("webgl2");
-    if (!gl) {
-        console.error("WebGL 2 not available");
-        document.body.innerHTML = "This example requires WebGL 2 which is unavailable on this system."
-    }
+            //Linkando os shaders ao programa
+            let program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error(gl.getProgramInfoLog(program));
+            }
+            //Usar o programa - shadders
+            gl.useProgram(program);
 
-    //cor do fundo
-    gl.clearColor(0, 0, 0, 1); //preto
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
-    gl.enable(gl.DEPTH_TEST);
-    let vsSource = document.getElementById("vs").text.trim();
-    let fsSource = document.getElementById("fs").text.trim();
+            //1. Define os arrays de vertices
+            //Define os arrays de vertices usando a Lógica de Voronoi. Chamando as funções
+            // para criar os pontos gerando numero total de pontos:
+            let totalPoints = getRandomInt(3, 15);
+            let vertexColors =[];
+            let polygonVertices = [totalPoints];//poligonos
+            let vertices = [totalPoints];
+            let sites = setSites(totalPoints); //sites
+            fillVoronoi (sites);
 
-    //Vértices - criando seu shader
-    let vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vertexShader, vsSource);
-    gl.compileShader(vertexShader);
-    if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(vertexShader));
-    }
+            //definindo apenas os vertices
+            for (let i = 0; i < totalPoints; i++) {
+                vertices[i] = [sites[i].x, sites[i].y];
+            }
 
-    //Cores - criando seu shader
-    let fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragmentShader, fsSource);
-    gl.compileShader(fragmentShader);
-    if (!gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS)) {
-        console.error(gl.getShaderInfoLog(fragmentShader));
-    }
+            // Definindo as cores para cada região de Voronoi com cores próximas de vidro e uma branca
+            vertexColors.push(vec4(1.0,1.0,1.0,1.0));
+            for (let i = 1; i < totalPoints; i++) {
+                vertexColors.push(vec4(0.8,0.9,1.0,0.8));
+            }
+            
+            //Exibindo informações dos pontos após a função fillVoronoi
+            console.log('Total de pontos', totalPoints);
+            console.log('Sites', sites);
+            console.log('Vertex', vertices);
+            console.log("Pontos de Voronoi:");
+            for (let i = 0; i < totalPoints; i++) {
+                let site = sites[i];
+                console.log(`Ponto ${i + 1}: Coordenadas (${site.x}, ${site.y}), Semente: (${site.seed.x}, ${site.seed.y})`);
+            }
 
-    //Linkando os shaders ao programa
-    let program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error(gl.getProgramInfoLog(program));
-    }
-    // Tell it to use our program (pair of shaders)
-    gl.useProgram(program);
+            //inserir os vertices que serão desenhados
+            for (let i = 0; i < totalPoints; i++) {
+                //Agora sim vai desenhar - Obtenha os vértices da célula de Voronoi
+                let cellVertices = getVoronoiCellVertices(i, vertices);
+                // Adicione os vértices ao array polygonVertices
+                polygonVertices = polygonVertices.concat(cellVertices);
+            }
+            let flattenedPolygonVertices = [];
+            for (let i = 0; i < polygonVertices.length; i++) {
+                flattenedPolygonVertices.push(polygonVertices[i]);
+            }
 
-    ////Textura
-    //const pixel = new Uint8Array([240, 240, 240, 240]);
-    //let texture = gl.createTexture();
-    //gl.activeTexture(gl.TEXTURE0);
-    //gl.bindTexture(gl.TEXTURE_2D, texture);
-    //gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-    //gl.generateMipmap(gl.TEXTURE_2D);
-    //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            //3. Copiar para GPU
+            //Vertices - attributes get their data from buffers, so we need to create a buffer
+            let positionBuffer = gl.createBuffer();
+            // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
+            gl.bindBuffer(gl.ARRAY_BUFFER,positionBuffer);
+            //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(flattenedPolygonVertices), gl.STATIC_DRAW);
+            //location of the attribute for the program - deve ser feito na inicialização e não na renderização
+            let positionLoc = gl.getAttribLocation(program,"position");
+            //Then we need to specify how to pull the data out
+            gl.vertexAttribPointer(positionLoc,2,gl.FLOAT,false,0,0);
+            //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+            gl.enableVertexAttribArray(positionLoc);
 
-
-    //1. Define os arrays de vertices
-    //Define os arrays de vertices usando a Lógica de Voronoi
-    //Chamando as funções para criar os pontos
-    //gerando numero total de pontos:
-    let colorsArray =[];
-    let normalArray =[];
-    let vertices = [];
-    let poligonoVertices = [];
-    //let texCoordArray =[];
-    let totalPoints = getRandomInt(10, 20);
-    let sites = setSites(totalPoints);
-    fillVoronoi (sites);
-
-    //// Exibindo informações dos pontos após a função fillVoronoi
-    console.log('Total de pontos', totalPoints);
-    //console.log('Sites', sites);
-    //console.log("Pontos de Voronoi:");
-    for (let i = 0; i < sites.length; i++) {
-        let site = sites[i];
-        console.log(`Ponto ${i + 1}: Coordenadas (${site.x}, ${site.y}), Semente: (${site.site.x}, ${site.site.y})`);
-    }
-
-    // Definindo as cores para cada região de Voronoi com cores próximas de vidro e uma branca
-    colorsArray.push(vec4(1.0,1.0,1.0,1.0));
-    for (let i = 1; i < sites.length; i++) {
-        colorsArray.push(vec4(0.8,0.9,1.0,0.8));
-    }
-
-    //defininfos os vertices dos pontos
-    vertices = sites.reduce((acc, site) => {
-        acc.push(site.x, site.y);
-        return acc;
-    }, []);
-
-    console.log('Cores', colorsArray);
-    console.log('Vertices', vertices);
-
-    //3. Copiar para GPU
-    //Vertices
-    //Attributes get their data from buffers, so we need to create a buffer
-    let positionBuffer = gl.createBuffer();
-    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
-    gl.bindBuffer(gl.ARRAY_BUFFER,positionBuffer);
-    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
-    gl.bufferData(gl.ARRAY_BUFFER,flatten(vertices),gl.STATIC_DRAW);
-    //location of the attribute for the program - deve ser feito na inicialização e não na renderização
-    let positionLoc = gl.getAttribLocation(program,"position");
-    //Then we need to specify how to pull the data out
-    gl.vertexAttribPointer(positionLoc,2,gl.FLOAT,false,0,0);
-    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
-    gl.enableVertexAttribArray(positionLoc);
-
-    ////Textura
-    ////Attributes get their data from buffers, so we need to create a buffer
-    //let texCoordBuffer = gl.createBuffer();
-    //// First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
-    //gl.bindBuffer(gl.ARRAY_BUFFER,texCoordBuffer);
-    ////Now we can put data in that buffer by referencing it through the bind point - definidos acima
-    //gl.bufferData(gl.ARRAY_BUFFER,texCoordArray,gl.STATIC_DRAW);
-    ////location of the attribute for the program  - deve ser feito na inicialização e não na renderização
-    //let textureLocation = gl.getAttribLocation(program, "texCoord");
-    ////Then we need to specify how to pull the data out
-    //gl.vertexAttribPointer(textureLocation,2,gl.FLOAT,false,0,0);
-    ////This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
-    //gl.enableVertexAttribArray(textureLocation);
+            //Cores - Attributes get their data from buffers, so we need to create a buffer
+            let colorBuffer = gl.createBuffer();
+            // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
+            gl.bindBuffer(gl.ARRAY_BUFFER,colorBuffer);
+            //Now we can put data in that buffer by referencing it through the bind point - definidos acima
+            gl.bufferData(gl.ARRAY_BUFFER,flatten(vertexColors),gl.STATIC_DRAW);
+            //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
+            let colorLoc = gl.getUniformLocation(program, "color");
+            //Then we need to specify how to pull the data out
+            gl.vertexAttribPointer(colorLoc,4,gl.FLOAT,false,0,0);
+            //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
+            gl.enableVertexAttribArray(colorLoc);
 
 
-    //Cores
-    //Attributes get their data from buffers, so we need to create a buffer
-    let colorBuffer = gl.createBuffer();
-    // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
-    gl.bindBuffer(gl.ARRAY_BUFFER,colorBuffer);
-    //Now we can put data in that buffer by referencing it through the bind point - definidos acima
-    gl.bufferData(gl.ARRAY_BUFFER,flatten(colorsArray),gl.STATIC_DRAW);
-    //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
-    let colorLoc = gl.getAttribLocation(program,"color");
-    //Then we need to specify how to pull the data out
-    gl.vertexAttribPointer(colorLoc,4,gl.FLOAT,false,0,0);
-    //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
-    gl.enableVertexAttribArray(colorLoc);
+            ////////////////
+            // DRAW
+            ////////////////
+            //posição da câmera é 4, está apontando para o centro e em "pé" no eixo y
+            let eye= vec3(0,0,4), target=vec3(0,0,0), up = vec3(0,1,0) ;
+            let viewMatrix= lookAt(eye,target,up);
+            //o que será visto, near =  tem que ser menor que a distância da câmera, que é 3, foi usado 1;
+            // far = 4, vai pegar até o -1 de profundidade
+            let projectionMatrix = perspective(45,aspect,1,4);
+            //definir uma matriz, a ordem de multiplicação é: projection x view
+            let mvp= mult(projectionMatrix,viewMatrix);
 
+            let mvpMatrixLoc= gl.getUniformLocation(program,"mvpMatrix");
+            gl.uniformMatrix4fv(mvpMatrixLoc,false,flatten(mvp));
 
-    ////Normal
-    ////Attributes get their data from buffers, so we need to create a buffer
-    //let normalBuffer = gl.createBuffer();
-    //// First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
-    //gl.bindBuffer(gl.ARRAY_BUFFER,normalBuffer);
-    ////Now we can put data in that buffer by referencing it through the bind point - definidos acima
-    //gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(normalArray),gl.STATIC_DRAW);
-    ////location of the attribute for the program  - deve ser feito na inicialização e não na renderização
-    //let normalLoc = gl.getAttribLocation(program,"normal");
-    ////Then we need to specify how to pull the data out
-    //gl.vertexAttribPointer(normalLoc,3,gl.FLOAT,false,0,0);
-    ////This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
-    //gl.enableVertexAttribArray(normalLoc);
-    //console.log('normalLoc', normalLoc);
+            console.log('viewMatrix', viewMatrix);
+            console.log('projectionMatrix', projectionMatrix);
+            console.log('view projection', mvp);
 
-    ////Luz
-    ////a luz ambiente é a mesma para todos
-    //const lightAmbient = vec4(0.2,0.2,0.2,1);
-    //gl.uniform4fv(gl.getUniformLocation(program,'ambient'),lightAmbient);
-    ////Luz3 - azul
-    //const lightPosition = vec4(2,0.0,2.5,1.0);
-    ////azul
-    //gl.uniform4fv(gl.getUniformLocation(program,'lightPosition'),lightPosition);
-    ////aqui que mudo a cor
-    //const lightDiffuse = vec4 (0.0,0.0,1.0,1.0);
-    //gl.uniform4fv(gl.getUniformLocation(program,'diffuse'),lightDiffuse);
+            console.log('vpMatrixLoc', mvpMatrixLoc);
 
-    ////////////////
-    // DRAW
-    ////////////////
-    //posição da câmera é 4, está apontando para o centro e em "pé" no eixo y
-    let eye= vec3(0,0,4), target=vec3(0,0,0), up = vec3(0,1,0) ;
-    let viewMatrix= lookAt(eye,target,up);
-    console.log('viewMatrix', viewMatrix);
-    //o que será visto, near =  tem que ser menor que a distância da câmera, que é 3, foi usado 1;
-    // far = 4, vai pegar até o -1 de profundidade
-    let projectionMatrix = perspective(90,aspect,1,20);
-    console.log('projectionMatrix', projectionMatrix);
-    //definir uma matriz, a ordem de multiplicação é: projection x view
-    let viewProjection= mult(projectionMatrix,viewMatrix);
-    console.log('viewProjection', viewProjection);
+            console.log('Vertex shader compile status:', gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS));
+            console.log('Vertex shader info log:', gl.getShaderInfoLog(vertexShader));
 
-    //passa para o shadder
-    let eye4 = vec4(eye[0],eye[1],eye[2],1);
-    //gl.uniform4fv(camPosloc,eye4);
+            console.log('Fragment shader compile status:', gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS));
+            console.log('Fragment shader info log:', gl.getShaderInfoLog(fragmentShader));
 
-    let vpMatrixLoc = gl.getUniformLocation(program,"vpMatrix");
-    let mMatrixLoc = gl.getUniformLocation(program,"mMatrix");
-    let camPosloc = gl.getUniformLocation(program,"camPosition");
-
-    console.log('vpMatrixLoc', vpMatrixLoc);
-    console.log('mMatrixLoc', mMatrixLoc);
-    console.log('camPosloc', camPosloc);
-    console.log('eye4', eye4);
-
-    console.log('Vertex shader compile status:', gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS));
-    console.log('Vertex shader info log:', gl.getShaderInfoLog(vertexShader));
-
-    console.log('Fragment shader compile status:', gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS));
-    console.log('Fragment shader info log:', gl.getShaderInfoLog(fragmentShader));
-
-
-    //renderização, laço infinito
-    let render = function (){
-        let modelMatrix = mult(rotateX(180) ,rotateY(0));
-        gl.uniformMatrix4fv(mMatrixLoc,false,flatten(modelMatrix));
-        gl.uniformMatrix4fv(vpMatrixLoc,false,flatten(viewProjection));
-        //limpa a tela sempre
-        gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-        // console.log('renderizando os pontos');
-        for (let i = 0; i < totalPoints; i++) {
-            //Agora sim vai desenhar
-            // Obtenha os vértices da célula de Voronoi
-            const cellVertices = getVoronoiCellVertices(i, vertices);
-            // Adicione os vértices ao array poligonoVertices
-            poligonoVertices = poligonoVertices.concat(cellVertices);
-            // Desenhe o polígono
-            // gl.drawArrays(gl.LINE_LOOP, poligonoVertices.length - cellVertices.length, cellVertices.length);
-        }
-        gl.drawArrays(gl.LINE_LOOP, 0, poligonoVertices.length);
-        //função assincrona que só vai ser chamada quando a GPU retornar que finalizou
-        requestAnimationFrame(render);
-    }
-    render ();
-
-</script>
-
-</body>
+            let render = function (){
+                gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+                gl.drawArrays(gl.LINE_LOOP, 0, flattenedPolygonVertices.length/2);
+                requestAnimationFrame(render);
+            }
+            render ();
+        </script>
+    </body>
 
 </html>

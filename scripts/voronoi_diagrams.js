@@ -1,14 +1,3 @@
-//let totalPoints = getRandomInt(100, 5000);
-//let sites = setSites(totalPoints);
-//fillVoronoi (sites);
-//
-//// Exibindo informações dos pontos após a função fillVoronoi
-//console.log("Pontos de Voronoi:");
-//for (let i = 0; i < sites.length; i++) {
-//    let site = sites[i];
-//    console.log(`Ponto ${i + 1}: Coordenadas (${site.x}, ${site.y}), Semente: (${site.site.x}, ${site.site.y})`);
-//}
-
 //Funções
 //função para gerar um número inteiro entre o min e max
 function getRandomInt(min, max) {
@@ -17,15 +6,24 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min) + min);
 }
 
-//função para criar os pontos
+function getRandomFloat(min, max) {
+    return Math.floor( min + (Math.random() * (max - min)));
+}
+
+//função para criar os pontos/coordenadas
+//So, in the context of a Voronoi diagram:
+// Seed: Refers to the point around which a Voronoi cell is constructed.
+// Vertex/sites: Refers to the corner points of the Voronoi cells.
 function setSites(totalSites) {
     let sites = new Array(totalSites);
     let x = 0;
     let y = 0;
     for (let i = 0; i < totalSites; i++) {
-        x = getRandomInt(-5, 5);
-        y = getRandomInt(-5, 5);
-        sites[i] = { x, y };
+        let x = getRandomFloat(-3.0, 3.0);
+        let y = getRandomFloat(-3.0, 3.0);
+        let seedX = getRandomFloat(-3.0, 3.0); //seed for X coordinate
+        let seedY = getRandomFloat(-3.0, 3.0); //seed for Y coordinate
+        sites[i] = { x, y, seed: { x: seedX, y: seedY } };
     }
     return sites;
 }
@@ -46,17 +44,10 @@ function fillVoronoi (sites) {
     }
 }
 
-
-/*
- Parameters:
-   a: With two components: a[0] and a[1], 'x' and 'y' coordinates
-   b: With two components: b[0] and b[1], 'x' and 'y' coordinates
- Returns: Euclidean Distance value.
-*/
-//calculo da distancia euclidiana para definir a distancia entre pontos
+//calculo da distancia euclidiana para definir a distancia Euclasiana pontos
 function distance(a, b) {
-    var dx = b[0] - a[0];
-    var dy = b[1] - a[1];
+    var dx = b.x - a.x;
+    var dy = b.y - a.y;
     return Math.sqrt(dx * dx + dy * dy); // Euclidean distance formula
 }
 
@@ -90,32 +81,18 @@ function findLineIntersection(point1, point2) {
     const x2 = point2.x;
     const y2 = point2.y;
 
-    // Verifique se as linhas são verticais
-    if (x1 === x2) {
-        // Linhas são paralelas ou coincidentes
+    // Verifique se as linhas são verticais  ou Verifique se as linhas são horizontais
+    if (x1 === x2 || y1 === y2){ // Linhas são paralelas ou coincidentes
         return null;
     }
-    // Verifique se as linhas são horizontais
-    if (y1 === y2) {
-        // Linhas são paralelas ou coincidentes
-        return null;
-    }
-    // Calcule as inclinações das linhas
-    const m1 = (y2 - y1) / (x2 - x1);
-    // Calcule as interceptações y
-    const b1 = y1 - m1 * x1;
-    // Ponto de interseção y para linhas horizontais
-    const y = y1;
-    // Ponto de interseção x
-    const x = (y - b1) / m1;
+    const m1 = (y2 - y1) / (x2 - x1);     // Calcule as inclinações das linhas
+    const b1 = y1 - m1 * x1; // Calcule as interceptações y
+    const y = y1; // Ponto de interseção y para linhas horizontais
+    const x = (y - b1) / m1;  // Ponto de interseção x
     // Verifique se o ponto de interseção está dentro do intervalo dos segmentos de linha
-    if (
-        (x >= Math.min(x1, x2) && x <= Math.max(x1, x2)) &&
-        (y >= Math.min(y1, y2) && y <= Math.max(y1, y2))
-    ) {
+    if ( (x >= Math.min(x1, x2) && x <= Math.max(x1, x2)) && (y >= Math.min(y1, y2) && y <= Math.max(y1, y2)) ) {
         return { x, y };
-    } else {
-        // As linhas não se intersectam dentro do intervalo dos segmentos de linha
+    } else {// As linhas não se intersectam dentro do intervalo dos segmentos de linha
         return null;
     }
 }
