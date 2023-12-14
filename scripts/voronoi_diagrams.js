@@ -19,10 +19,10 @@ function setSites(totalSites) {
     let x = 0;
     let y = 0;
     for (let i = 0; i < totalSites; i++) {
-        let x = getRandomFloat(-3.0, 3.0);
-        let y = getRandomFloat(-3.0, 3.0);
-        let seedX = getRandomFloat(-3.0, 3.0); //seed for X coordinate
-        let seedY = getRandomFloat(-3.0, 3.0); //seed for Y coordinate
+        let x = getRandomFloat(-4.0, 4.0);
+        let y = getRandomFloat(-4.0, 4.0);
+        let seedX = getRandomFloat(-4.0, 4.0); //seed for X coordinate
+        let seedY = getRandomFloat(-4.0, 4.0); //seed for Y coordinate
         sites[i] = { x, y, seed: { x: seedX, y: seedY } };
     }
     return sites;
