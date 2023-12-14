@@ -59,3 +59,20 @@ function distance(a, b) {
     var dy = b[1] - a[1];
     return Math.sqrt(dx * dx + dy * dy); // Euclidean distance formula
 }
+//gerando os poligonos
+function getVoronoiCellVertices(pointIndex) {
+    const cellVertices = [];
+    const site = sites[pointIndex]; // O ponto para o qual estamos criando a célula
+
+    for (let j = 0; j < totalPoints; j++) {
+        if (j !== pointIndex) {
+            const neighborSite = sites[j];
+
+            // Adicione os vértices da aresta entre o site atual e seu vizinho
+            // Lembre-se de que a ordem dos vértices é crucial para formar um polígono
+            cellVertices.push(site.x, site.y, neighborSite.x, neighborSite.y);
+        }
+    }
+
+    return cellVertices;
+}

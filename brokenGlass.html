@@ -55,7 +55,7 @@
         vec3  reflected = reflect ( lightDir, normalize(ipnormal.xyz));
         vec4  viewDir= normalize ( camPosition - pos3D);
         float specularfactor = pow(max(0.0,dot(reflected, normalize(viewDir.xyz))),1.0);
-        fragColor = (ambient + diffusefactor + specularfactor) * diffuse;
+        fragColor = ambient + (diffusefactor * diffuse) + (specularfactor * specular);
         fragColor.a=1.0;
     }
 </script>
@@ -136,6 +136,7 @@
     let colorsArray =[];
     let normalArray =[];
     let vertices = [];
+    let poligonoVertices = [];
     let texCoordArray =[];
     let totalPoints = getRandomInt(30, 1500);
     console.log('Total de pontos', totalPoints);
@@ -186,7 +187,7 @@
     //Now we can put data in that buffer by referencing it through the bind point - definidos acima
     gl.bufferData(gl.ARRAY_BUFFER,texCoordArray,gl.STATIC_DRAW);
     //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
-    let textureLocation = gl.getUniformLocation(program, "texCoord");
+    let textureLocation = gl.getAttribLocation(program, "texCoord");
     //Then we need to specify how to pull the data out
     gl.vertexAttribPointer(textureLocation,2,gl.FLOAT,false,0,0);
     //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
@@ -284,12 +285,18 @@
             // gl_Position to. No matter what size our canvas is those values are in clip space coordinates that go
             // from -1 to 1 in each direction.
             //Agora sim vai desenhar
-
             // Atualiza o uniform da cor no shader de fragmentos
             const color = [colorsArray[i * 4], colorsArray[i * 4 + 1], colorsArray[i * 4 + 2], colorsArray[i * 4 + 3]];
             gl.uniform4fv(fColorLoc, color);
-            // Desenha o ponto atual
-            gl.drawArrays(gl.POINTS, i, 1);
+
+            // Obtenha os vértices da célula de Voronoi
+            const cellVertices = getVoronoiCellVertices(i);
+
+            // Adicione os vértices ao array poligonoVertices
+            poligonoVertices = poligonoVertices.concat(cellVertices);
+
+            // Desenhe o polígono
+            gl.drawArrays(gl.LINE_LOOP, poligonoVertices.length - cellVertices.length, cellVertices.length);
         }
         //função assincrona que só vai ser chamada quando a GPU retornar que finalizou
         requestAnimationFrame(render);
