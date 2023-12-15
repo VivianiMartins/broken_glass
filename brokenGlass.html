@@ -36,16 +36,17 @@
 
         <canvas id="webgl-canvas"></canvas>
         <script type="text/javascript" src="scripts/MV.js"></script>
-        <script type="text/javascript" src="scripts/voronoi_diagrams.js"></script>
+        <script type="text/javascript" src="scripts/voronoi_diagram.js"></script>
+
         <script>
             let canvas = document.getElementById("webgl-canvas");
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             let aspect= canvas.width/canvas.height;
-            console.log('canvas');
-            console.log(aspect);
-            console.log(canvas.width);
-            console.log(canvas.height);
+            //console.log('canvas');
+            //console.log(aspect);
+            //console.log(canvas.width);
+            //console.log(canvas.height);
 
             //criando o contexto de renderização:
             let gl = canvas.getContext("webgl2");
@@ -59,6 +60,25 @@
             gl.enable(gl.DEPTH_TEST);
             let vsSource = document.getElementById("vs").text.trim();
             let fsSource = document.getElementById("fs").text.trim();
+
+
+            //1. Define os arrays de vertices
+            //Define os arrays de vertices usando a Lógica de Voronoi. Chamando as funções
+            // para criar os pontos gerando numero total de pontos:
+            let totalPoints = getRandomInt(3, 15);
+            let vertexColors =[];
+            let positionArray = [];
+            let sites = setSites(totalPoints); //Vertices ou pontos
+            let coloringPoints = fillVoronoi (sites);
+            // o retorno dessa função me da a região que tenho que colorir
+            ColorPoints (coloringPoints, totalPoints, sites, positionArray, vertexColors);
+
+
+            //Exibindo informações dos pontos após a função fillVoronoi
+            //console.log('Total de pontos', totalPoints);
+            //console.log('Sites', sites);
+            //console.log("Position array", positionArray);
+            //console.log("Vertex Color", vertexColors);
 
             //Vertex - criando seu shader
             let vertexShader = gl.createShader(gl.VERTEX_SHADER);
@@ -86,62 +106,20 @@
             //Usar o programa - shadders
             gl.useProgram(program);
 
-            //1. Define os arrays de vertices
-            //Define os arrays de vertices usando a Lógica de Voronoi. Chamando as funções
-            // para criar os pontos gerando numero total de pontos:
-            let totalPoints = getRandomInt(3, 15);
-            let vertexColors =[];
-            let polygonVertices = [totalPoints];//poligonos
-            let vertices = [totalPoints];
-            let sites = setSites(totalPoints); //sites
-            fillVoronoi (sites);
-
-            //definindo apenas os vertices
-            for (let i = 0; i < totalPoints; i++) {
-                vertices[i] = [sites[i].x, sites[i].y];
-            }
-
-            // Definindo as cores para cada região de Voronoi com cores próximas de vidro e uma branca
-            vertexColors.push(vec4(1.0,1.0,1.0,1.0));
-            for (let i = 1; i < totalPoints; i++) {
-                vertexColors.push(vec4(0.8,0.9,1.0,0.8));
-            }
-            
-            //Exibindo informações dos pontos após a função fillVoronoi
-            console.log('Total de pontos', totalPoints);
-            console.log('Sites', sites);
-            console.log('Vertex', vertices);
-            console.log("Pontos de Voronoi:");
-            for (let i = 0; i < totalPoints; i++) {
-                let site = sites[i];
-                console.log(`Ponto ${i + 1}: Coordenadas (${site.x}, ${site.y}), Semente: (${site.seed.x}, ${site.seed.y})`);
-            }
-
-            //inserir os vertices que serão desenhados
-            for (let i = 0; i < totalPoints; i++) {
-                //Agora sim vai desenhar - Obtenha os vértices da célula de Voronoi
-                let cellVertices = getVoronoiCellVertices(i, vertices);
-                // Adicione os vértices ao array polygonVertices
-                polygonVertices = polygonVertices.concat(cellVertices);
-            }
-            let flattenedPolygonVertices = [];
-            for (let i = 0; i < polygonVertices.length; i++) {
-                flattenedPolygonVertices.push(polygonVertices[i]);
-            }
-
-            //3. Copiar para GPU
-            //Vertices - attributes get their data from buffers, so we need to create a buffer
+            //Vertices
+            //Attributes get their data from buffers, so we need to create a buffer
             let positionBuffer = gl.createBuffer();
             // First you bind a resource to a bind point. Then, all other functions refer to the resource through the bind point. So, let's bind the position buffer.
             gl.bindBuffer(gl.ARRAY_BUFFER,positionBuffer);
             //Now we can put data in that buffer by referencing it through the bind point - definidos acima
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(flattenedPolygonVertices), gl.STATIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER,flatten(positionArray),gl.STATIC_DRAW);
             //location of the attribute for the program - deve ser feito na inicialização e não na renderização
             let positionLoc = gl.getAttribLocation(program,"position");
             //Then we need to specify how to pull the data out
-            gl.vertexAttribPointer(positionLoc,4,gl.FLOAT,false,0,0);
+            gl.vertexAttribPointer(positionLoc,2,gl.FLOAT,false,0,0);
             //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
             gl.enableVertexAttribArray(positionLoc);
+
 
             //Cores - Attributes get their data from buffers, so we need to create a buffer
             let colorBuffer = gl.createBuffer();
@@ -150,7 +128,7 @@
             //Now we can put data in that buffer by referencing it through the bind point - definidos acima
             gl.bufferData(gl.ARRAY_BUFFER,flatten(vertexColors),gl.STATIC_DRAW);
             //location of the attribute for the program  - deve ser feito na inicialização e não na renderização
-            let colorLoc = gl.getUniformLocation(program, "color");
+            let colorLoc = gl.getAttribLocation(program, "color");
             //Then we need to specify how to pull the data out
             gl.vertexAttribPointer(colorLoc,4,gl.FLOAT,false,0,0);
             //This tells WebGL we want to get data out of a buffer. If we don't turn on the attribute then the attribute will have a constant value.
@@ -172,18 +150,19 @@
             let mvpMatrixLoc= gl.getUniformLocation(program,"mvpMatrix");
             gl.uniformMatrix4fv(mvpMatrixLoc,false,flatten(mvp));
 
-            console.log('viewMatrix', viewMatrix);
-            console.log('projectionMatrix', projectionMatrix);
-            console.log('view projection', mvp);
-            console.log('vpMatrixLoc', mvpMatrixLoc);
-            console.log('Vertex shader compile status:', gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS));
-            console.log('Vertex shader info log:', gl.getShaderInfoLog(vertexShader));
-            console.log('Fragment shader compile status:', gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS));
-            console.log('Fragment shader info log:', gl.getShaderInfoLog(fragmentShader));
+            //console.log('viewMatrix', viewMatrix);
+            //console.log('projectionMatrix', projectionMatrix);
+            //console.log('view projection', mvp);
+            //console.log('vpMatrixLoc', mvpMatrixLoc);
+            //console.log('Vertex shader compile status:', gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS));
+            //console.log('Vertex shader info log:', gl.getShaderInfoLog(vertexShader));
+            //console.log('Fragment shader compile status:', gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS));
+            //console.log('Fragment shader info log:', gl.getShaderInfoLog(fragmentShader));
 
             let render = function (){
+                //console.log('rendering');
                 gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-                gl.drawArrays(gl.LINE_LOOP, 0, flattenedPolygonVertices.length/2);
+                gl.drawArrays(gl.POINTS, 0, positionArray.length);
                 requestAnimationFrame(render);
             }
             render ();
