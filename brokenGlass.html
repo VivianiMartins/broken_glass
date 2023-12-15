@@ -56,24 +56,25 @@
             }
 
             //cor do fundo
-            gl.clearColor(0, 0, 0, 1);//preto
+            gl.clearColor(0, 0, 0.3, 0.2);//preto
             gl.enable(gl.DEPTH_TEST);
             let vsSource = document.getElementById("vs").text.trim();
             let fsSource = document.getElementById("fs").text.trim();
 
-
             //1. Define os arrays de vertices
             //Define os arrays de vertices usando a Lógica de Voronoi. Chamando as funções
             // para criar os pontos gerando numero total de pontos:
-            let totalPoints = getRandomInt(3, 15);
+            let totalPoints = getRandomInt(5, 30);
             let vertexColors =[];
-            let positionArray = [];
-            let sites = setSites(totalPoints); //Vertices ou pontos
-            let coloringPoints = fillVoronoi (sites);
-            // o retorno dessa função me da a região que tenho que colorir
-            ColorPoints (coloringPoints, totalPoints, sites, positionArray, vertexColors);
+            //usando os tamanhos da tela p não criar pontos fora dela.
+            let positionArray = setSites(totalPoints, canvas); //Vertices ou pontos
+            let coloringPoints = fillVoronoi (positionArray);
+            // Definindo as cores para cada região de Voronoi com cores próximas de vidro e uma branca
 
-
+            for (let i = 1; i < totalPoints; i++) {
+                vertexColors.push(vec4(0.8,0.9,1.0,0.8));
+            }
+            vertexColors.push(vec4(1.0,1.0,1.0,1.0));
             //Exibindo informações dos pontos após a função fillVoronoi
             //console.log('Total de pontos', totalPoints);
             //console.log('Sites', sites);
@@ -162,7 +163,16 @@
             let render = function (){
                 //console.log('rendering');
                 gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-                gl.drawArrays(gl.POINTS, 0, positionArray.length);
+                let i = 0;
+                for(let y=0; y<canvas.height; y++){
+                    for(let x=0; x<canvas.width; x++){
+                        if(x===positionArray[coloringPoints[i]] && x===positionArray[coloringPoints[i]]){
+                            gl.drawArrays(gl.POINTS, 0, vertexColors[i]);
+                            i++
+                        }
+                    }
+                }
+                gl.drawArrays(gl.TRIANGLES, 0, positionArray.length);
                 requestAnimationFrame(render);
             }
             render ();

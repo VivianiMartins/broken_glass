@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voronoi Pattern</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+<canvas id="voronoi-canvas"></canvas>
+<script>
+    const canvas = document.getElementById("voronoi-canvas");
+    const ctx = canvas.getContext("2d");
+
+    let points = [];
+    let colors = [];
+    const numPoints = 100; // Adjust as needed
+
+    function generateRandomPoints(numPoints) {
+        const points = [];
+        for (let i = 0; i < numPoints; i++) {
+            points.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+            });
+        }
+        return points;
+    }
+
+    function generateRandomColors(numColors) {
+        const colors = [];
+        for (let i = 0; i < numColors; i++) {
+            colors.push([Math.random() * 255,Math.random() * 255,Math.random() * 255]);
+        }
+        return colors;
+    }
+
+    function drawVoronoiDiagram(points, colors) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        points.forEach((point, index) => {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = colors[index];
+            ctx.fill();
+            ctx.closePath();
+        });
+
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                const closestPoint = findClosestPoint(x, y, points);
+                ctx.fillStyle = colors[closestPoint];
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
+    }
+
+    function findClosestPoint(x, y, points) {
+        let minDistance = Infinity;
+        let closestPoint = -1;
+
+        points.forEach((point, index) => {
+            const distance = Math.sqrt(
+                Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2)
+            );
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestPoint = index;
+            }
+        });
+
+        return closestPoint;
+    }
+
+    function relaxPoints(points) {
+        const relaxedPoints = points.map((point, index) => {
+            let xSum = point.x;
+            let ySum = point.y;
+            let count = 1;
+
+            points.forEach((otherPoint, otherIndex) => {
+                if (index !== otherIndex) {
+                    const distance = Math.sqrt(
+                        Math.pow(point.x - otherPoint.x, 2) +
+                        Math.pow(point.y - otherPoint.y, 2)
+                    );
+                    if (distance < 100) { // Adjust relaxation distance as needed
+                        xSum += otherPoint.x;
+                        ySum += otherPoint.y;
+                        count++;
+                    }
+                }
+            });
+
+            return {
+                x: xSum / count,
+                y: ySum / count,
+            };
+        });
+
+        return relaxedPoints;
+    }
+
+    function animate() {
+        points.forEach((point, index) => {
+            ctx.fillStyle = colors[index];
+            ctx.fillRect(point.x - 3, point.y - 3, 6, 6);
+        });
+
+        drawVoronoiDiagram(points, colors);
+        points = relaxPoints(points);
+
+        requestAnimationFrame(animate);
+    }
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        points = generateRandomPoints(numPoints);
+        colors = generateRandomColors(numPoints);
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    points = generateRandomPoints(numPoints);
+    colors = generateRandomColors(numPoints);
+
+    animate();
+</script>
+</body>
+</html>

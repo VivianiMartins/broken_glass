@@ -13,10 +13,10 @@ function getRandomFloat(min, max) {
 //função para criar os pontos/coordenadas
 //So, in the context of a Voronoi diagram:
 // Vertex/sites: Refers to the corner points of the Voronoi cells.
-function setSites(totalSites) {
+function setSites(totalSites, canvas) {
     let sites = [];
     for (let i = 0; i < totalSites; i++) {
-        sites.push(vec2(getRandomFloat(-4.0, 4.0) , (getRandomFloat(-4.0, 4.0) + .8) ));
+        sites.push(vec2(Math.random()*canvas.width , Math.random()*canvas.height ));
     }
     return sites;
 }
@@ -47,17 +47,20 @@ function distance(a, b) {
     return Math.sqrt(dx * dx + dy * dy); // Euclidean distance formula
 }
 
-function ColorPoints (coloringPoints, totalPoints, sites, positionArray, vertexColors){
-    for (let i = 0; i<totalPoints; i++){
-        if(coloringPoints[i] != 0){
-            //a região que vou colorir
-            if (i == totalPoints/2){
-                positionArray.push(sites[i]);
-                vertexColors.push(vec4(1.0,1.0,1.0,1.0));
-            }else {
-                positionArray.push(sites[i]);
-                vertexColors.push(vec4(0.8,0.9,1.0,0.8));
-            }
-        }
-    }
-}
+//function ColorPoints (coloringPoints, totalPoints, sites, positionArray, vertexColors){
+//
+//
+//    for (let i = 0; i<totalPoints; i++){
+//        if(coloringPoints[i] != 0){
+//            //a região que vou colorir
+//            if (i == totalPoints/2){
+//                positionArray.push(sites[i]);
+//                vertexColors.push(vec4(1.0,1.0,1.0,1.0));
+//            }else {
+//                positionArray.push(sites[i]);
+//                vertexColors.push(vec4(0.8,0.9,1.0,0.8));
+//            }
+//        }
+//    }
+//}
+
